@@ -1,0 +1,22 @@
+[general]
+name=GEE Procesador
+qgisMinimumVersion=3.22
+description=Procesa capas satelitales (Landsat/Sentinel/DEM) vía Google Earth Engine y las carga en QGIS.
+version=0.1
+author=Federico Carrera
+email=cambiar@ejemplo.com
+
+about=Complemento local para calcular índices y derivados (NDVI, EBBI, DEM, etc.) sobre un área de estudio, usando Google Earth Engine como motor de cálculo.
+
+tracker=
+repository=
+homepage=
+
+category=Raster
+icon=icon.png
+
+experimental=True
+deprecated=False
+
+# Etiquetas separadas por coma
+tags=earth engine, gee, teledeteccion, raster, landsat, sentinel, dem
