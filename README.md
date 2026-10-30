@@ -1,106 +1,163 @@
 # GEE Procesador — plugin de QGIS
 
-Complemento local de QGIS para calcular índices satelitales, modelos de
-elevación (DEM), coberturas de suelo y composiciones de bandas usando
-Google Earth Engine (GEE) como motor de cálculo, con interpretación
-automática opcional vía IA (Gemini).
+Complemento local de QGIS para calcular índices satelitales, modelos de elevación (DEM), coberturas de suelo y composiciones de bandas usando Google Earth Engine (GEE) como motor de cálculo. También incluye interpretación automática opcional de resultados con IA (Gemini).
 
-Nace de un script de consola (`01_Proyecto_Base.py`) que se fue separando
-en piezas para poder tener una interfaz gráfica.
+Este proyecto nació a partir de un script de consola de QGIS que se fue separando en módulos para poder reutilizar la lógica y ofrecer una interfaz gráfica más clara y ordenada.
 
-## Cómo instalarlo
+## Qué hace
 
-1. Copiar toda esta carpeta (`gee_procesador/`) a la carpeta de plugins de
-   tu perfil de QGIS:
+El plugin permite:
+
+- Calcular índices de vegetación, humedad, agua, urbanización, incendios, temperatura y meteorología.
+- Procesar DEM y derivados como pendiente, aspecto, curvatura, TRI y TPI.
+- Trabajar con coberturas ya clasificadas (Dynamic World y ESA WorldCover).
+- Generar composiciones RGB de bandas crudas para visualización tipo imagen satelital.
+- Exportar resultados directamente a disco o a Google Drive.
+- Mostrar un informe con resumen, tabla de clasificación, JSON técnico y, si se configura, una interpretación automática generada con Gemini.
+
+## Instalación
+
+1. Copiar la carpeta del plugin (`GEE-PROCESADOR/`) dentro de la carpeta de plugins de QGIS, normalmente:
    `C:\Users\TU_USUARIO\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\`
-2. En QGIS: **Complementos → Administrar e instalar complementos →
-   Instalados**, tildar "GEE Procesador".
-3. Si hiciste cambios en el código y no se reflejan: destildar y volver a
-   tildar el plugin (recarga el código).
+2. Abrir QGIS.
+3. Ir a: `Complementos → Administrar e instalar complementos → Instalados`.
+4. Activar `GEE Procesador`.
+5. Si modificaste código y no se refleja, desactivar y volver a activar el complemento para recargarlo.
 
-## Estructura de archivos
+## Estructura del proyecto
 
-| Archivo | Qué hace |
+| Archivo | Descripción |
 |---|---|
-| `__init__.py` | Punto de entrada que QGIS busca al cargar el plugin (`classFactory`). No tiene lógica propia. |
-| `metadata.txt` | Nombre, versión, descripción — lo que ve QGIS en el Administrador de Complementos. |
-| `icon.png` | Ícono de la barra de herramientas. |
-| `gee_procesador.py` | Registra el ícono/menú en QGIS y abre la ventana (`GeeProcesadorDialog`). |
-| `gee_procesador_dialog.py` | La interfaz gráfica completa: todos los campos, validaciones, y la conexión con `motor.py`. |
-| `motor.py` | El cálculo real: conexión a Earth Engine, procesamiento de cada producto, exportación, estilos. Contiene la función `ejecutar(config)` (índices/DEM/coberturas) y `generar_composicion_bandas(config)` (bandas crudas, aparte). |
-| `datos.py` | Diccionarios de referencia fijos: qué productos existen, sus umbrales de clasificación, colores, reglas de qué satélite corresponde a qué fecha, mensajes de texto. No cambia según lo que el usuario elija en la interfaz. |
+| `__init__.py` | Punto de entrada del plugin; QGIS lo usa para crear la instancia del complemento. |
+| `metadata.txt` | Metadatos del plugin: nombre, versión, autor, etiquetas, etc. |
+| `icon.png` | Ícono del complemento. |
+| `gee_procesador.py` | Registra la acción del plugin en QGIS y abre la ventana principal. |
+| `gee_procesador_dialog.py` | Interfaz gráfica principal. Aquí se cargan capas, categorías, fechas, opciones de exportación y se muestra el informe. |
+| `motor.py` | Motor de cálculo. Contiene la lógica de acceso a Earth Engine y el procesamiento de cada tipo de producto. |
+| `datos.py` | Base de referencia del plugin: productos, rangos temporales, umbrales, colores, presets de bandas y textos. |
 
-**Regla general:** `datos.py` = información fija. `motor.py` = cálculo.
-`gee_procesador_dialog.py` = interfaz. Si algo no calcula bien, el
-problema está en `motor.py`. Si algo no se ve bien o no valida bien, está
-en `gee_procesador_dialog.py`. Si un valor está mal (un umbral, un color,
-un rango de fecha), está en `datos.py`.
+Regla general del proyecto:
 
-## Las 4 categorías
+- `datos.py` = información fija.
+- `motor.py` = cálculo real.
+- `gee_procesador_dialog.py` = interfaz y validaciones.
 
-- **Índices**: fórmulas sobre bandas (NDVI, EBBI, NDWI, MSAVI, NDBI, NDMI,
-  NBR, LST, CHIRPS, viento ERA5). Usan fecha, nubosidad, y se clasifican
-  en clases con porcentaje de superficie.
-- **DEM**: modelos de elevación y derivados (pendiente, aspecto,
-  curvatura, TRI, TPI). No usan fecha ni nubosidad. El EPSG de
-  reproyección es obligatorio acá.
-- **Coberturas**: mapas ya clasificados por terceros (Dynamic World, ESA
-  WorldCover). No usan nubosidad (el filtrado ya viene resuelto en el
-  dato). ESA WorldCover tiene fecha fija (2021), no editable.
-- **Bandas**: composición RGB de bandas crudas (no un índice), para
-  visualización tipo "foto satelital". Usa nubosidad, fecha, y presets
-  estándar de la industria (color natural, falso color vegetación,
-  agricultura, SWIR/humedad, urbano, geología). Exporta siempre en
-  GeoTIFF. No tiene clasificación ni interpretación de IA (no aplica:
-  es una imagen de referencia, no una medición).
+## Categorías disponibles
 
-## La pestaña "Informe"
+### 1) Índices
 
-Después de una ejecución exitosa se completa sola con: resumen
-(producto/capa/superficie), tabla de clasificación con color por clase,
-el JSON completo de lo que calculó el motor, y — si hay una clave de API
-de Gemini cargada en la pestaña "Clave API" — una interpretación en texto
-generada por IA, que usa las coordenadas del centro del área para tener
-contexto geográfico/climático.
+Procesa fórmulas sobre bandas satelitales como:
 
-La clave de Gemini se guarda con `QgsSettings` (configuración local de
-QGIS, en tu perfil de Windows) — **no** viaja si compartís esta carpeta.
+- NDVI
+- EBBI
+- NDWI
+- MSAVI
+- NDBI
+- NDMI
+- NBR
+- LST
+- CHIRPS
+- Viento ERA5
 
-## Limitaciones conocidas (a propósito, no son errores)
+Estos productos usan fecha y, en general, considerar una máxima nubosidad. El resultado se clasifica por umbrales y se presenta en porcentajes por clase.
 
-- **Ejecución bloqueante**: mientras corre Earth Engine (o Gemini), QGIS
-  se congela. Es una decisión consciente, no un bug — ejecutar en segundo
-  plano es una mejora posible a futuro, no implementada.
-- **Un solo polígono por capa**: si la capa tiene más de un polígono, el
-  motor corta con un error explícito en vez de procesar solo el primero
-  en silencio.
-- **No se pueden mezclar satélites en una sola corrida** (ej. Landsat +
-  Sentinel en el mismo rango de fechas) — se descartó por la complejidad
-  de calibrar sensores distintos entre sí. El calendario bloquea
-  físicamente los rangos que mezclarían fuentes.
-- **`REFERENCIAS_COLOR`** (nombre de color por clase) cubre los 11
-  productos que tienen clasificación por umbrales. Los productos de
-  cobertura (Dynamic World, ESA WorldCover) tienen su propia tabla de
-  colores aparte, ya incluida.
-- **La interpretación de IA no tiene conocimiento de terreno real** — lee
-  números y coordenadas, no reemplaza una visita a campo ni corrige
-  umbrales mal calibrados. Es una lectura de apoyo, no una verdad
-  absoluta.
-- **Earth Engine tiene un límite de ~48 MB para descarga directa** en
-  áreas grandes — el plugin lo detecta y sugiere usar exportación a
-  Google Drive en ese caso (sin ese límite).
+### 2) DEM
 
-## Ideas pendientes (no implementadas)
+Procesa modelos de elevación y derivados:
 
-- Ejecución en segundo plano (que QGIS no se congele).
-- Completar `REFERENCIAS_COLOR` si se agregan productos nuevos.
-- Guardar la interpretación de IA en el `.txt`/`.json` exportado, no solo
-  mostrarla en pantalla.
+- pendiente
+- aspecto
+- curvatura
+- TRI
+- TPI
 
-## Historial breve
+No usan fecha ni nubosidad. Para DEM, el EPSG de reproyección es obligatorio.
 
-Este plugin viene de un script de consola de QGIS que hacía todo el
-procesamiento sin interfaz (`01_Proyecto_Base.py`, guardado como
-referencia). Se fue separando en `datos.py` + `motor.py` primero, y
-después se le construyó la interfaz gráfica encima, campo por campo,
-verificando cada paso antes de sumar el siguiente.
+### 3) Coberturas
+
+Procesa coberturas ya clasificadas por terceros, por ejemplo:
+
+- Dynamic World
+- ESA WorldCover
+
+Estas capas ya traen una clasificación predefinida y no requieren filtrar nubosidad.
+
+### 4) Bandas
+
+Genera composiciones RGB a partir de bandas crudas para visualización satelital, por ejemplo:
+
+- color natural
+- falso color vegetación
+- agricultura
+- SWIR/humedad
+- urbano
+- geología
+
+Esto no es una clasificación ni un índice, sino una imagen de referencia visual.
+
+## Pestaña “Informe”
+
+Tras ejecutar una tarea con éxito, la pestaña `Informe` se completa con:
+
+- resumen del producto y la capa analizada
+- superficie calculada
+- tabla de clasificación con color por clase
+- JSON completo del resultado generado por el motor
+- interpretación automática con IA si hay una clave de Gemini cargada en la pestaña `Clave API`
+
+La clave de Gemini se guarda en la configuración local de QGIS (`QgsSettings`), no dentro del proyecto ni junto con el plugin, por lo que no se comparte con el repositorio.
+
+## Clave API de Gemini
+
+La opción de interpretación automática se activa desde la pestaña `Clave API`.
+
+- La clave se guarda localmente en el perfil de QGIS del usuario.
+- No viaja en la carpeta del plugin ni se versiona en Git.
+- Se usa para pedir una lectura simple, explicada para usuarios no expertos, basada en estadísticas + ubicación geográfica.
+
+## Limitaciones conocidas
+
+Estas no son errores sino decisiones de diseño del complemento:
+
+- Ejecución bloqueante: mientras corre Earth Engine o Gemini, QGIS puede quedar congelado.
+- Un solo polígono por capa: si la capa tiene más de un polígono, el motor falla explícitamente en lugar de procesar solo el primero.
+- No se mezclan satélites en una misma corrida: por ejemplo, no se puede combinar Landsat y Sentinel dentro del mismo rango de fechas.
+- La referencia de colores cubre los productos clasificados principales; para nuevas incorporaciones, puede requerirse completar la tabla de referencia.
+- La interpretación con IA no sustituye la observación de campo ni corregir la calibración de umbrales.
+- Earth Engine tiene un límite de descarga directa aproximado de ~48 MB; en áreas grandes el plugin detecta esto y sugiere exportación a Google Drive.
+
+## Mejoras pendientes
+
+- Ejecutar procesos en segundo plano para que QGIS no se congele.
+- Completar referencias de colores para nuevos productos o familias.
+- Guardar la interpretación de IA dentro del archivo exportado, no solo en la ventana del informe.
+
+## Historia breve
+
+Este plugin nació a partir de un script de consola de QGIS que hacía todo el procesamiento sin interfaz. Con el tiempo, la lógica se separó en `datos.py` y `motor.py`, y después se construyó la interfaz gráfica sobre ese núcleo para dejarlo usable en la práctica.
+
+## Recomendaciones de uso
+
+- Trabajar siempre con una capa de polígono única.
+- Elegir un rango de fechas compatible con la fuente satelital del producto.
+- Para áreas grandes, usar exportación a Google Drive cuando el cálculo no pueda descargarse directamente.
+- Guardar la api key de Gemini solo en la configuración local de QGIS para no compartir credenciales con terceros.
+
+## Licencia
+
+El repositorio no incluye un archivo de licencia explícito en esta versión; si necesitas usarlo en un entorno profesional o compartirlo públicamente, conviene definir una licencia antes de distribuirlo.
+
+## Notas finales
+
+GEE Procesador está pensado como una herramienta local y práctica para análisis geoespacial en QGIS con Google Earth Engine como backend. Su enfoque principal es entregar resultados interpretables y reproducibles, con una capa de control visual y de validación que ayude a evitar decisiones incorrectas por default.
+
+---
+
+Si querés, puedo dejarte además una versión todavía más profesional del README con:
+
+- tabla de productos por categoría
+- ejemplos de uso reales
+- sección de “requerimientos del sistema”
+- badges de estado del proyecto y capturas de pantalla
+- una versión orientada a GitHub público
+
