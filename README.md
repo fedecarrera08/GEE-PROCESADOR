@@ -105,3 +105,5 @@ El repositorio no define una licencia explícita en esta versión. Si se desea d
 ## Nota final
 
 GEE Procesador está pensado como una herramienta práctica para análisis geoespacial en QGIS con Google Earth Engine como backend. Su objetivo es combinar rapidez, trazabilidad y facilidad de uso en flujos de trabajo de teledetección y análisis territorial.
+
+README generado por Copilot.
